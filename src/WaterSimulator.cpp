@@ -167,7 +167,7 @@ void WaterSimulator::createRaindrop() {
         r = std::max(1, std::min(N - 2, r));
         c = std::max(1, std::min(N - 2, c));
 
-        getHeight(currentHeights, r, c) -= raindropMagnitude;
+        getHeight(currentHeights, r, c) += raindropMagnitude;
     }
 }
 

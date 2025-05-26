@@ -28,13 +28,14 @@ void generateWaterGrid(std::vector<float>& vertices, std::vector<unsigned int>& 
 unsigned int loadTexture(const char* path);
 void mouse_button_callback(GLFWwindow* window, int button, int action, int mods);
 
-const unsigned int SCR_WIDTH = 1280;
-const unsigned int SCR_HEIGHT = 720;
+unsigned int SCR_WIDTH = 1280;
+unsigned int SCR_HEIGHT = 720;
 
 const int WATER_GRID_N = 256;
 const float WATER_SURFACE_SIZE = 4.0f;
+const unsigned int HEIGHT_MAP_RESOLUTION = WATER_GRID_N;
 
-Camera camera(glm::vec3(0.0f, 0.5f, 0.0f), 7.0f);
+Camera camera(glm::vec3(0.0f, 0.5f, 0.0f), 3.0f);
 
 bool leftMouseButtonPressed = false;
 bool rightMouseButtonPressed = false;
@@ -190,6 +191,7 @@ int main() {
     }
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
+    float heightScale = 0.1f;
 
     while (!glfwWindowShouldClose(window)) {
         float currentFrame = static_cast<float>(glfwGetTime());
@@ -200,12 +202,15 @@ int main() {
 
         waterSimulator.createRaindrop();
         waterSimulator.updateSimulation();
+
         duckAnimator.update(deltaTime);
+        glm::vec3 currentDuckSplinePos = duckAnimator.getCurrentPositionXZ();
+
         glm::mat4 duckTransform = duckAnimator.getDuckTransform(-0.075f, glm::vec3(0.0f, 1.0f, 0.0f));
+
         float currentSplineSpeed = duckAnimator.getCurrentSplineAdvancementSpeed();
-        float actualWakeMagnitude = 0.1f * currentSplineSpeed;
-        auto duck_position = duckAnimator.getCurrentPositionXZ();
-        waterSimulator.createDisturbance(duck_position.x, duck_position.z, actualWakeMagnitude);
+        float actualWakeMagnitude = currentSplineSpeed;
+        waterSimulator.createDisturbance(currentDuckSplinePos.x, currentDuckSplinePos.z, actualWakeMagnitude);
 
         glm::mat4 projection = camera.GetProjectionMatrix((float)SCR_WIDTH / (float)SCR_HEIGHT);
         glm::mat4 view = camera.GetViewMatrix();
@@ -268,6 +273,8 @@ int main() {
         glBindVertexArray(sceneWallVAO);
         glDrawArrays(GL_TRIANGLES, 0, 36);
 
+        glDisable(GL_CULL_FACE);
+
         duckShader.use();
         duckShader.setMat4("model", duckTransform);
         duckShader.setMat4("view", view);
@@ -280,7 +287,7 @@ int main() {
         duckShader.setInt("texture_diffuse1", 0);
         duckModel.Draw();
 
-        glDisable(GL_CULL_FACE);
+
 
         waterShader.use();
         waterShader.setMat4("model", identityModel);
@@ -288,40 +295,25 @@ int main() {
         waterShader.setMat4("projection", projection);
         waterShader.setVec3("viewPos_world", camera.Position);
 
-        waterShader.setMat4("viewMatrix", view);
-        waterShader.setMat4("projectionMatrix", projection);
-        waterShader.setMat4("inverseProjectionMatrix", glm::inverse(projection));
-        waterShader.setVec2("viewportSize", glm::vec2(SCR_WIDTH, SCR_HEIGHT));
-        waterShader.setFloat("maxRefractionDistance", 30.0f);
-        waterShader.setFloat("refractionDepthThickness", 0.1f);
-        waterShader.setInt("maxRaySteps", 30);
-
-
         glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, waterSimulator.getHeightmapTextureID());
-        waterShader.setInt("heightMap", 0);
+        glBindTexture(GL_TEXTURE_2D, sceneColorTextureOutput);
+        waterShader.setInt("uSceneColor", 0);
 
         glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, waterSimulator.getNormalmapTextureID());
-        waterShader.setInt("normalMap", 1);
+        glBindTexture(GL_TEXTURE_2D, sceneDepthTextureOutput);
+        waterShader.setInt("uSceneDepth", 1);
 
         glActiveTexture(GL_TEXTURE2);
         glBindTexture(GL_TEXTURE_CUBE_MAP, cubemapTexture);
-        waterShader.setInt("skyboxCube", 2);
+        waterShader.setInt("uSkybox", 2);
 
         glActiveTexture(GL_TEXTURE3);
-        glBindTexture(GL_TEXTURE_2D, sceneColorTextureOutput);
-        waterShader.setInt("sceneColorTexture", 3);
+        glBindTexture(GL_TEXTURE_2D, waterSimulator.getHeightmapTextureID());
+        waterShader.setInt("uHeightMap", 3);
 
-        glActiveTexture(GL_TEXTURE4);
-        glBindTexture(GL_TEXTURE_2D, sceneDepthTextureOutput);
-        waterShader.setInt("sceneDepthTexture", 4);
-
-        waterShader.setFloat("indexOfRefractionAir", 1.0f);
-        waterShader.setFloat("indexOfRefractionWater", 1.33f);
-        waterShader.setFloat("waterOpacity", 1.0f);
-        waterShader.setFloat("distortionStrength", 0.05f);
-
+        waterShader.setFloat("uHeightScale", heightScale);
+        waterShader.setFloat("uWaterSurfaceSize", WATER_SURFACE_SIZE);
+        waterShader.setVec2("uTexelSize", 1.0f / (float)waterSimulator.getGridN(), 1.0f / (float)waterSimulator.getGridN());
 
         glBindVertexArray(waterVAO);
         glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(waterIndices.size()), GL_UNSIGNED_INT, 0);
@@ -386,7 +378,12 @@ void processInput(GLFWwindow *window) {
 }
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
+    if (width == 0 || height == 0) return;
+    SCR_WIDTH = width;
+    SCR_HEIGHT = height;
     glViewport(0, 0, width, height);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, sceneFBO);
     if (sceneColorTextureOutput) {
         glBindTexture(GL_TEXTURE_2D, sceneColorTextureOutput);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
@@ -396,6 +393,7 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
         glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, width, height, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
     }
     glBindTexture(GL_TEXTURE_2D, 0);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
 void mouse_button_callback(GLFWwindow* window, int button, int action, int mods) {
@@ -431,6 +429,7 @@ unsigned int loadCubemap(std::vector<std::string> faces) {
     glGenTextures(1, &textureID);
     glBindTexture(GL_TEXTURE_CUBE_MAP, textureID);
     int width, height, nrChannels;
+    stbi_set_flip_vertically_on_load(false);
     for (unsigned int i = 0; i < faces.size(); i++) {
         unsigned char *data = stbi_load(faces[i].c_str(), &width, &height, &nrChannels, 0);
         if (data) {

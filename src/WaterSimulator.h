@@ -46,8 +46,8 @@ private:
     std::mt19937 rng;
     std::uniform_int_distribution<int> distN;
     std::uniform_real_distribution<float> distProb;
-    const float raindropProbability = 0.005f;
-    const float raindropMagnitude = 0.1f;
+    const float raindropProbability = 0.05f;
+    const float raindropMagnitude = 1.1f;
 
     void initializeGrid();
     void initializeDampingFactors();
