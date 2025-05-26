@@ -24,7 +24,7 @@ WaterSimulator::WaterSimulator(int gridN, float physicalSize) :
     std::cout << "WaterSim N=" << N << ", size=" << size << ", h=" << h << ", dt_sim=" << dt_sim << std::endl;
     std::cout << "WaterSim A=" << A_const << ", B=" << B_const << std::endl;
     float stability_check = (C_const_sq * dt_sim_sq) / h_sq;
-    std::cout << "Stability Check (c^2*dt^2/h^2) = " << stability_check << " (should be <= 0.5)" << std::endl; // [cite: 34]
+    std::cout << "Stability Check (c^2*dt^2/h^2) = " << stability_check << " (should be <= 0.5)" << std::endl;
     if (stability_check > 0.5f) {
         std::cerr << "WARNING: Simulation might be unstable!" << std::endl;
     }

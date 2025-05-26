@@ -1,47 +1,59 @@
 #version 450 core
-layout (location = 0) in vec3 aPos;
-layout (location = 1) in vec2 aTexCoords;
 
-out vec3 vFragPosWorld;
-out vec3 vFragPosViewSpace;
-out vec4 vFragPosClipSpace;
-out vec3 vNormalViewSpace;
-out vec2 TexCoords;
+layout (location = 0) in vec3 aPos;
+layout (location = 1) in vec2 aTexCoord;
 
 uniform mat4 model;
 uniform mat4 view;
 uniform mat4 projection;
-
 uniform sampler2D uHeightMap;
 uniform float uHeightScale;
-uniform vec2 uTexelSize;
 uniform float uWaterSurfaceSize;
+uniform vec2 uTexelSize;
+
+out vec3 FragPos;
+out vec2 TexCoord;
+out vec3 Normal;
+out vec4 ClipSpacePos;
+out vec3 ViewPos;
+
+vec3 calculateNormal(vec2 texCoord) {
+    // Sample heightmap at current position and neighbors
+    float heightL = texture(uHeightMap, texCoord + vec2(-uTexelSize.x, 0.0)).r;
+    float heightR = texture(uHeightMap, texCoord + vec2(uTexelSize.x, 0.0)).r;
+    float heightD = texture(uHeightMap, texCoord + vec2(0.0, -uTexelSize.y)).r;
+    float heightU = texture(uHeightMap, texCoord + vec2(0.0, uTexelSize.y)).r;
+
+    // Calculate gradients
+    float dx = (heightR - heightL) * uHeightScale;
+    float dz = (heightU - heightD) * uHeightScale;
+
+    // Calculate normal vector
+    vec3 normal = normalize(vec3(-dx, 2.0 * uTexelSize.x * uWaterSurfaceSize, -dz));
+
+    return normal;
+}
 
 void main() {
-    float height_raw = texture(uHeightMap, aTexCoords).r;
-    float current_height_world = height_raw * uHeightScale;
-    vec3 displacedPosModel = vec3(aPos.x, current_height_world, aPos.z);
+    TexCoord = aTexCoord;
 
-    float h_L_raw = texture(uHeightMap, aTexCoords - vec2(uTexelSize.x, 0.0)).r;
-    float h_R_raw = texture(uHeightMap, aTexCoords + vec2(uTexelSize.x, 0.0)).r;
-    float h_D_raw = texture(uHeightMap, aTexCoords - vec2(0.0, uTexelSize.y)).r;
-    float h_U_raw = texture(uHeightMap, aTexCoords + vec2(0.0, uTexelSize.y)).r;
+    // Sample height from heightmap
+    float height = texture(uHeightMap, TexCoord).r * uHeightScale;
 
-    float world_delta_x = uWaterSurfaceSize * uTexelSize.x;
-    float world_delta_z = uWaterSurfaceSize * uTexelSize.y;
+    // Apply height displacement
+    vec3 displacedPos = aPos + vec3(0.0, height, 0.0);
 
-    float slope_x = (h_R_raw - h_L_raw) * uHeightScale / (2.0 * world_delta_x);
-    float slope_z = (h_U_raw - h_D_raw) * uHeightScale / (2.0 * world_delta_z);
+    // Calculate world position
+    FragPos = vec3(model * vec4(displacedPos, 1.0));
 
-    vec3 normalModelSpace = normalize(vec3(-slope_x, 1.0, -slope_z));
+    // Calculate normal from heightmap
+    Normal = mat3(transpose(inverse(model))) * calculateNormal(TexCoord);
 
-    gl_Position = projection * view * model * vec4(displacedPosModel, 1.0);
+    // Calculate clip space position for screen space calculations
+    ClipSpacePos = projection * view * vec4(FragPos, 1.0);
 
-    vFragPosWorld = vec3(model * vec4(displacedPosModel, 1.0));
-    vFragPosClipSpace = gl_Position;
-    vFragPosViewSpace = vec3(view * model * vec4(displacedPosModel, 1.0));
+    // Calculate view space position
+    ViewPos = vec3(view * vec4(FragPos, 1.0));
 
-    vNormalViewSpace = normalize(mat3(transpose(inverse(view * model))) * normalModelSpace);
-
-    TexCoords = aTexCoords;
+    gl_Position = ClipSpacePos;
 }

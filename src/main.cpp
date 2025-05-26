@@ -293,7 +293,28 @@ int main() {
         waterShader.setMat4("model", identityModel);
         waterShader.setMat4("view", view);
         waterShader.setMat4("projection", projection);
+
+        glm::mat4 invView = glm::inverse(view);
+        glm::mat4 invProjection = glm::inverse(projection);
+        waterShader.setMat4("invView", invView);
+        waterShader.setMat4("invProjection", invProjection);
+
         waterShader.setVec3("viewPos_world", camera.Position);
+        waterShader.setVec2("uScreenSize", glm::vec2((float)SCR_WIDTH, (float)SCR_HEIGHT));
+
+        waterShader.setFloat("uRefractionStrength", 1.0f);
+        waterShader.setFloat("uReflectionStrength", 1.0f);
+        waterShader.setFloat("uFresnelPower", 5.0f);
+        waterShader.setFloat("uWaterIOR", 1.33f);
+        waterShader.setFloat("uWaterTurbidity", 0.0f);
+
+        waterShader.setInt("uMaxSteps", 64);
+        waterShader.setFloat("uStepSize", 0.01f);
+        waterShader.setFloat("uMaxDistance", 5.0f);
+        waterShader.setFloat("uThickness", 0.05f);
+        waterShader.setFloat("uRayBias", 0.0f);
+
+        waterShader.setFloat("uWaterLevel", 0.5f);
 
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, sceneColorTextureOutput);
@@ -302,10 +323,6 @@ int main() {
         glActiveTexture(GL_TEXTURE1);
         glBindTexture(GL_TEXTURE_2D, sceneDepthTextureOutput);
         waterShader.setInt("uSceneDepth", 1);
-
-        glActiveTexture(GL_TEXTURE2);
-        glBindTexture(GL_TEXTURE_CUBE_MAP, cubemapTexture);
-        waterShader.setInt("uSkybox", 2);
 
         glActiveTexture(GL_TEXTURE3);
         glBindTexture(GL_TEXTURE_2D, waterSimulator.getHeightmapTextureID());
