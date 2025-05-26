@@ -10,12 +10,3 @@ This project is an implementation of an interactive water simulation for compute
 * GLAD - OpenGL Loading Library (configured for OpenGL 4.5 Core profile).
 * GLM (OpenGL Mathematics) - Vector and matrix operations.
 
-## Controls
-
-* **WASD:** Move camera forward/left/backward/right.
-* **Space:** Move camera up.
-* **Left Shift:** Move camera down.
-* **Mouse:** Look around.
-* **Mouse Scroll Wheel:** Zoom in/out (adjust FOV).
-* **Escape:** Close the application.
-
